@@ -441,6 +441,10 @@ class Describe_Row(object):
         cells = row.cells
         assert isinstance(cells, _RowCells)
 
+    def it_provides_access_to_the_table_it_belongs_to(self, table_fixture):
+        row, table_ = table_fixture
+        assert row.table is table_
+
     # fixtures -------------------------------------------------------
 
     @pytest.fixture
@@ -451,7 +455,17 @@ class Describe_Row(object):
         table_.row_cells.return_value = list(expected_cells)
         return row, row_idx, expected_cells
 
+    @pytest.fixture
+    def table_fixture(self, parent_, table_):
+        row = _Row(None, parent_)
+        parent_.table = table_
+        return row, table_
+
     # fixture components ---------------------------------------------
+
+    @pytest.fixture
+    def parent_(self, request):
+        return instance_mock(request, Table)
 
     @pytest.fixture
     def _row_idx_(self, request):

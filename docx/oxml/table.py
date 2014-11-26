@@ -254,6 +254,11 @@ class CT_Tc(BaseOxmlElement):
             return 1
         return tcPr.grid_span
 
+    @grid_span.setter
+    def grid_span(self, value):
+        tcPr = self.get_or_add_tcPr()
+        tcPr.grid_span = value
+
     def iter_block_items(self):
         """
         Generate a reference to each of the block-level content elements in
@@ -414,6 +419,21 @@ class CT_Tc(BaseOxmlElement):
     def _new_tbl(self):
         return CT_Tbl.new()
 
+    @property
+    def _next_tc(self):
+        """
+        The `w:tc` element immediately following this one in this row, or
+        |None| if this is the last `w:tc` element in the row.
+        """
+        following_tcs = self.xpath('./following-sibling::w:tc')
+        return following_tcs[0] if following_tcs else None
+
+    def _remove(self):
+        """
+        Remove this `w:tc` element from the XML tree.
+        """
+        self.getparent().remove(self)
+
     def _remove_trailing_empty_p(self):
         """
         Remove the last content element from this cell if it is an empty
@@ -484,7 +504,17 @@ class CT_Tc(BaseOxmlElement):
         width of the resulting cell is greater than *grid_width* or if there
         is no next `<w:tc>` element in the row.
         """
-        raise NotImplementedError
+        def raise_on_invalid_swallow(next_tc):
+            if next_tc is None:
+                raise InvalidSpanError('not enough grid columns')
+            if self.grid_span + next_tc.grid_span > grid_width:
+                raise InvalidSpanError('span is not rectangular')
+
+        next_tc = self._next_tc
+        raise_on_invalid_swallow(next_tc)
+        next_tc._move_content_to(top_tc)
+        self.grid_span += next_tc.grid_span
+        next_tc._remove()
 
     @property
     def _tbl(self):
@@ -575,6 +605,12 @@ class CT_TcPr(BaseOxmlElement):
         if gridSpan is None:
             return 1
         return gridSpan.val
+
+    @grid_span.setter
+    def grid_span(self, value):
+        self._remove_gridSpan()
+        if value > 1:
+            self.get_or_add_gridSpan().val = value
 
     @property
     def vMerge_val(self):
